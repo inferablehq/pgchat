@@ -1,6 +1,6 @@
 {
   "name": "pgchat",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Chat CLI for Postgres powered by inferable.ai",
   "bin": {
     "inf-chat": "bin/index.js"
