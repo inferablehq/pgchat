@@ -48,5 +48,9 @@
       "**/__tests__/**/*.ts",
       "**/?(*.)+(spec|test).ts"
     ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/inferablehq/pgchat.git"
   }
 }
