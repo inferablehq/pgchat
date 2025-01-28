@@ -89,6 +89,7 @@ const service = adapter.createService(client);
 
 await service.start();
 
+console.clear();
 await import("./cli.js").then(({ runCLI }) =>
   runCLI({
     apiSecret,

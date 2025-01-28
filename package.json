@@ -1,6 +1,6 @@
 {
   "name": "pgchat",
-  "version": "0.0.3",
+  "version": "0.0.6",
   "description": "Chat CLI for Postgres powered by inferable.ai",
   "bin": {
     "inf-chat": "bin/index.js"
@@ -30,6 +30,7 @@
     "dotenv": "^16.4.5",
     "inferable": "^0.30.81",
     "ink": "^5.1.0",
+    "ink-spawn": "^0.1.4",
     "ink-spinner": "^5.0.0",
     "ink-text-input": "^6.0.0",
     "react": "^18.3.1",
