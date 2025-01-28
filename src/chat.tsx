@@ -2,7 +2,6 @@ import { Box, Text, useFocus, useInput } from "ink";
 import TextInput from "ink-text-input";
 import { useEffect, useState } from "react";
 import { Collapsible } from "./components/Collapsible.js";
-
 import { useInferable, useMessages, useRun } from "@inferable/react";
 import Spinner from "ink-spinner";
 
@@ -21,7 +20,13 @@ export const ChatInterface = ({
 }: ChatProps) => {
   const [input, setInput] = useState("");
   const [error, setError] = useState<Error | null>(null);
-  const [collapseResults, setCollapseResults] = useState(true);
+  const [selectedCollapsibleIndex, setSelectedCollapsibleIndex] = useState<number | null>(null);
+  const [collapsibles, setCollapsibles] = useState<Array<{ id: string; content: any }>>([]);
+  const [modalContent, setModalContent] = useState<string | null>(null);
+
+  const shouldAutoCollapse = (content: any): boolean => {
+    return JSON.stringify(content, null, 2).length > 500;
+  };
 
   const inferable = useInferable({
     clusterId,
@@ -47,6 +52,13 @@ export const ChatInterface = ({
     (job) => job.approvalRequested && job.approved === null
   );
 
+  useEffect(() => {
+    if (approvalRequired.length > 0) {
+      setModalContent(null);
+      setSelectedCollapsibleIndex(null);
+    }
+  }, [approvalRequired]);
+
   const buildMsgBody = (msg: (typeof rawMessages)[number]) => {
     switch (msg.type) {
       case "human": {
@@ -58,11 +70,17 @@ export const ChatInterface = ({
             <Box flexDirection="column">
               <Text>{msg.data.message}</Text>
 
-              {msg.data.invocations.map((invocation, index) => (
+              {msg.data.invocations.map((invocation, index) => {
+                const collapsibleId = `invocation-${msg.id}-${index}`;
+                return (
                 <Collapsible
                   key={index}
                   title={`Calling ${invocation.toolName}()`}
-                  collapsed={false}
+                  collapsed={shouldAutoCollapse(invocation)}
+                  isSelected={selectedCollapsibleIndex === collapsibles.findIndex(c => c.id === collapsibleId)}
+                  onSelect={() => {
+                    setModalContent(JSON.stringify(invocation, null, 2));
+                  }}
                 >
                   {jobs.find(
                     (job) => job.id === invocation.id && job.approved === true
@@ -89,7 +107,7 @@ export const ChatInterface = ({
                     </Box>
                   ))}
                 </Collapsible>
-              ))}
+              )})}
             </Box>
           );
         }
@@ -102,13 +120,18 @@ export const ChatInterface = ({
       case "invocation-result": {
         const prop = Object.keys(msg.data.result)[0];
         const nestedResult = (msg.data.result[prop] as any).result;
+        const collapsibleId = `result-${msg.id}`;
 
         return (
           <Box flexDirection="column">
             <Collapsible
               key={msg.id}
-              title={"Result"}
-              collapsed={collapseResults}
+              title={`Result${shouldAutoCollapse(nestedResult) ? " (> 500 characters)" : ""}`}
+              collapsed={shouldAutoCollapse(nestedResult)}
+              isSelected={selectedCollapsibleIndex === collapsibles.findIndex(c => c.id === collapsibleId)}
+              onSelect={() => {
+                setModalContent(JSON.stringify(nestedResult, null, 2));
+              }}
             >
               <Text>{JSON.stringify(nestedResult, null, 2)}</Text>
             </Collapsible>
@@ -145,25 +168,6 @@ export const ChatInterface = ({
 
   const handleSubmit = async () => {
     const trimmedInput = input.trim();
-
-    // Handle slash commands
-    if (trimmedInput.startsWith('/')) {
-      switch (trimmedInput.toLowerCase()) {
-        case '/expand':
-          setCollapseResults(false);
-          break;
-        case '/collapse':
-          setCollapseResults(true);
-          break;
-        default:
-          // Unknown command
-          setError(new Error(`Unknown command: ${trimmedInput}`));
-      }
-      setInput('');
-      return;
-    }
-
-    // Handle regular messages
     if (trimmedInput) {
       if (!run?.id) {
         const { id } = await inferable.createRun({
@@ -192,7 +196,14 @@ export const ChatInterface = ({
     "approve"
   );
 
-  useInput((input, key) => {
+  useInput((_, key) => {
+    if (modalContent && key.return) {
+      console.clear();
+      setModalContent(null);
+      setSelectedCollapsibleIndex(null);
+      return;
+    }
+
     if (approvalRequired.length > 0) {
       if (key.leftArrow || key.rightArrow) {
         setSelectedButton((prev) => (prev === "approve" ? "deny" : "approve"));
@@ -200,13 +211,61 @@ export const ChatInterface = ({
         const currentJob = approvalRequired[0];
         submitApproval(currentJob.id, selectedButton === "approve");
       }
+      return
+    }
+
+    if (approvalRequired.length === 0) {
+      if (key.upArrow && selectedCollapsibleIndex !== null) {
+        setSelectedCollapsibleIndex(Math.max(0, selectedCollapsibleIndex - 1));
+      } else if (key.downArrow && selectedCollapsibleIndex !== null) {
+        setSelectedCollapsibleIndex(Math.min(collapsibles.length - 1, selectedCollapsibleIndex + 1));
+      } else if (key.tab) {
+        setSelectedCollapsibleIndex(selectedCollapsibleIndex === null ? collapsibles.length - 1 : null);
+      }
+      return
     }
   }, { isActive: true });
+
+  // Update collapsibles when messages change
+  useEffect(() => {
+    const newCollapsibles: Array<{ id: string; content: any }> = [];
+    rawMessages.forEach((msg) => {
+      if (msg.type === "agent" && msg.data.invocations) {
+        msg.data.invocations.forEach((invocation, index) => {
+          newCollapsibles.push({
+            id: `invocation-${msg.id}-${index}`,
+            content: invocation
+          });
+        });
+      } else if (msg.type === "invocation-result") {
+        const prop = Object.keys(msg.data.result)[0];
+        const nestedResult = (msg.data.result[prop] as any).result;
+        newCollapsibles.push({
+          id: `result-${msg.id}`,
+          content: nestedResult
+        });
+      }
+    });
+    setCollapsibles(newCollapsibles);
+  }, [rawMessages]);
+
+  if (modalContent) {
+    return (
+      <Box flexDirection="column" width="90%" height="100%">
+        <Box flexGrow={1} flexDirection="column">
+          <Text>{modalContent}</Text>
+        </Box>
+        <Box marginTop={1}>
+          <Text dimColor>Press Enter to exit modal view</Text>
+        </Box>
+      </Box>
+    );
+  }
 
   return (
     <Box flexDirection="column" width="90%">
       <Box flexDirection="column" marginBottom={1}>
-        {messages?.all("asc")?.map((msg, index) => (
+        {messages?.all("asc")?.map((msg, _) => (
           <Box key={msg.id} flexDirection="column" paddingBottom={1}>
             <Box flexDirection="row">{buildMsgHeader(msg)}</Box>
             {buildMsgBody(msg)}
@@ -269,10 +328,11 @@ export const ChatInterface = ({
       )}
 
       <Box marginTop={1}>
-      <Text dimColor>
-            Ctrl+C to exit |{" "}
-            {inputFocused ? "Enter to send message | /expand to show results | /collapse to hide results" : "Enter to submit approval"}{" "}
-          </Text>
+        <Text dimColor>
+          Ctrl+C to exit | {" "}
+          {selectedCollapsibleIndex !== null ? "Tab to exit selection mode | ↑↓ to navigate | " : ""}
+          {inputFocused ? "Enter to send message | Tab to enter selection mode |" : "Enter to submit approval"}{" "}
+        </Text>
       </Box>
     </Box>
   );
