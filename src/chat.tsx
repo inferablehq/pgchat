@@ -20,6 +20,8 @@ export const ChatInterface = ({
   agentId,
 }: ChatProps) => {
   const [input, setInput] = useState("");
+  const [error, setError] = useState<Error | null>(null);
+  const [collapseResults, setCollapseResults] = useState(true);
 
   const inferable = useInferable({
     clusterId,
@@ -34,8 +36,12 @@ export const ChatInterface = ({
     jobs,
     submitApproval,
     run,
-    error,
+    error: runError,
   } = useRun(inferable);
+
+  useEffect(() => {
+    setError(runError);
+  }, [runError]);
 
   const approvalRequired = jobs.filter(
     (job) => job.approvalRequested && job.approved === null
@@ -55,14 +61,8 @@ export const ChatInterface = ({
               {msg.data.invocations.map((invocation, index) => (
                 <Collapsible
                   key={index}
-                  id={`invocation-${index}`}
                   title={`Calling ${invocation.toolName}()`}
-                  defaultCollapsed={
-                    approvalRequired.find((job) => job.id === invocation.id)
-                      ? false
-                      : true
-                  }
-                  disabled={approvalRequired.length > 0}
+                  collapsed={false}
                 >
                   {jobs.find(
                     (job) => job.id === invocation.id && job.approved === true
@@ -107,9 +107,8 @@ export const ChatInterface = ({
           <Box flexDirection="column">
             <Collapsible
               key={msg.id}
-              id={`result-${msg.id}`}
               title={"Result"}
-              defaultCollapsed={true}
+              collapsed={collapseResults}
             >
               <Text>{JSON.stringify(nestedResult, null, 2)}</Text>
             </Collapsible>
@@ -145,10 +144,31 @@ export const ChatInterface = ({
   const messages = useMessages(rawMessages);
 
   const handleSubmit = async () => {
-    if (input.trim()) {
+    const trimmedInput = input.trim();
+
+    // Handle slash commands
+    if (trimmedInput.startsWith('/')) {
+      switch (trimmedInput.toLowerCase()) {
+        case '/expand':
+          setCollapseResults(false);
+          break;
+        case '/collapse':
+          setCollapseResults(true);
+          break;
+        default:
+          // Unknown command
+          setError(new Error(`Unknown command: ${trimmedInput}`));
+      }
+      setInput('');
+      return;
+    }
+
+    // Handle regular messages
+    if (trimmedInput) {
       if (!run?.id) {
         const { id } = await inferable.createRun({
           initialPrompt: input.trim(),
+          systemPrompt: "You are an assistant with access to a Postgres database. Help answer the user's questions by writing SQL queries. You can get the database schema by calling 'getPostgresContext'. Only respond to questions which can be answered with the available database.",
           interactive: true,
           agentId,
         });
@@ -165,6 +185,7 @@ export const ChatInterface = ({
   const { isFocused: inputFocused } = useFocus({
     id: "chat-input",
     autoFocus: approvalRequired.length === 0,
+    isActive: approvalRequired.length === 0
   });
 
   const [selectedButton, setSelectedButton] = useState<"approve" | "deny">(
@@ -180,7 +201,7 @@ export const ChatInterface = ({
         submitApproval(currentJob.id, selectedButton === "approve");
       }
     }
-  });
+  }, { isActive: true });
 
   return (
     <Box flexDirection="column" width="90%">
@@ -248,11 +269,10 @@ export const ChatInterface = ({
       )}
 
       <Box marginTop={1}>
-        <Text dimColor>
-          Ctrl+C to exit |{" "}
-          {inputFocused ? "Enter to send message" : "Enter to toggle function"}{" "}
-          | tab to navigate messages
-        </Text>
+      <Text dimColor>
+            Ctrl+C to exit |{" "}
+            {inputFocused ? "Enter to send message | /expand to show results | /collapse to hide results" : "Enter to submit approval"}{" "}
+          </Text>
       </Box>
     </Box>
   );

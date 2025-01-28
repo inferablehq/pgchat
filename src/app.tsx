@@ -14,7 +14,6 @@ export const App = ({
   const apiSecret = initialApiSecret!
   const clusterId = initialClusterId!
 
-
   return <ChatInterface
     apiSecret={apiSecret}
     clusterId={clusterId}
