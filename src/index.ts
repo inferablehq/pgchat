@@ -40,12 +40,18 @@ const argv = await yargs(hideBin(process.argv))
       "Enable privacy mode. All data will be returned as blobs (not sent to the model)",
     default: false,
   })
+  .option('endpoint', {
+    type: 'string',
+    describe: 'Inferable API endpoint',
+    default: 'https://api.inferable.ai'
+  })
   .parse();
 
 const connectionString = argv._[0] as string;
 
 let apiSecret = argv["secret"];
 let clusterId = argv["cluster-id"];
+let endpoint = argv['endpoint'];
 
 if (!connectionString) {
   throw new Error("No postgres connection string provided");
@@ -57,7 +63,7 @@ if (!apiSecret || !clusterId) {
   );
   console.log("You can create a free cluster at https://www.inferable.ai");
   const client = initClient(contract, {
-    baseUrl: "https://api.inferable.ai",
+    baseUrl: endpoint,
     api: (args) => {
       return tsRestFetchApi(args);
     },
@@ -74,6 +80,7 @@ if (!apiSecret || !clusterId) {
 
 const client = new Inferable({
   apiSecret,
+  endpoint,
 });
 
 const adapter = new InferablePGSQLAdapter({
@@ -94,5 +101,6 @@ await import("./cli.js").then(({ runCLI }) =>
   runCLI({
     apiSecret,
     clusterId,
+    endpoint,
   })
 );

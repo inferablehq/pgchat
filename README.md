@@ -45,7 +45,9 @@ Options:
 
 `pgchat` is powered using Powered by [Inferable](https://github.com/inferablehq/inferable). API usage limits apply, these can be be increased by providing an [Inferable API secret](https://docs.inferable.ai/pages/auth) `--secret` / Cluster ID `--cluster-id`.
 
-Inferable is also self-hostable for complete control over your data and privacy.
+> **Note**: When using `pgchat` without providing an `--api-secret`, it will use an ephemeral [Inferable cluster](https://docs.inferable.ai/pages/clusters) which is automatically cleaned up after 24 hours.
+
+Inferable is also [self-hostable](https://docs.inferable.ai/pages/self-hosting) for complete control over your data and privacy, `pgchat` can be configured to connect to a self-hosted instance of Inferable using the `--endpoint` flag.
 
 ## FAQ
 

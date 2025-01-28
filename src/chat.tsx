@@ -10,9 +10,16 @@ type ChatProps = {
   clusterId: string;
   runId?: string;
   agentId?: string;
+  endpoint?: string;
 };
 
-export const ChatInterface = ({ apiSecret, clusterId, runId, agentId }: ChatProps) => {
+export const ChatInterface = ({
+  apiSecret,
+  clusterId,
+  runId,
+  agentId,
+  endpoint
+}: ChatProps) => {
   const [input, setInput] = useState("");
   const [error, setError] = useState<Error | null>(null);
   const [selectedCollapsibleIndex, setSelectedCollapsibleIndex] = useState<number | null>(null);
@@ -27,6 +34,7 @@ export const ChatInterface = ({ apiSecret, clusterId, runId, agentId }: ChatProp
     clusterId,
     apiSecret,
     authType: "cluster",
+    baseUrl: endpoint,
   });
 
   const {
