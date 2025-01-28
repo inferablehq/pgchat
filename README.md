@@ -2,6 +2,8 @@
   <img src="./assets/logo.png" alt="Inferable Logo" width="200">
 
   A chat agent for your Postgres database, powered by [Inferable](https://github.com/inferablehq/inferable).
+
+  <img src="./assets/terminal.png" alt="Inferable Logo" width="800">
 </div>
 
 ## Features
@@ -51,9 +53,17 @@ Inferable is also self-hostable for complete control over your data and privacy.
 
 All `pgchat` queries are proxied via a function that runs on your local machine. As a result, the execution environment is completely isolated.
 
+### How do I know it's not going to drop my database?
+
+By default, `pgchat` runs in approval mode, which means that all queries are sent to the model for review before execution. You will see the query in the terminal before it is executed.
+
 ### How does it work without connection tunneling?
 
 `pgchat` uses Inferable's Node.js SDK to ferry commands from your local machine to the Inferable Control Plane. The SDK works with long polling the agent.
+
+### Does the LLM see my data?
+
+Yes by default. However, you can opt out of this by running with `--privacy-mode`. The tradeoff is that you won't get the benefits of the LLM's reasoning on your data. (This uses Inferable's [blob storage](https://docs.inferable.ai/pages/blobs) to return data to your terminal without sending it to the model.)
 
 ### What's Inferable?
 
