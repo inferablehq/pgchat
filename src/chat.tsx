@@ -12,12 +12,7 @@ type ChatProps = {
   agentId?: string;
 };
 
-export const ChatInterface = ({
-  apiSecret,
-  clusterId,
-  runId,
-  agentId,
-}: ChatProps) => {
+export const ChatInterface = ({ apiSecret, clusterId, runId, agentId }: ChatProps) => {
   const [input, setInput] = useState("");
   const [error, setError] = useState<Error | null>(null);
   const [selectedCollapsibleIndex, setSelectedCollapsibleIndex] = useState<number | null>(null);
@@ -50,9 +45,7 @@ export const ChatInterface = ({
     setError(runError);
   }, [runError]);
 
-  const approvalRequired = jobs.filter(
-    (job) => job.approvalRequested && job.approved === null
-  );
+  const approvalRequired = jobs.filter(job => job.approvalRequested && job.approved === null);
 
   useEffect(() => {
     if (approvalRequired.length > 0) {
@@ -75,49 +68,43 @@ export const ChatInterface = ({
               {msg.data.invocations.map((invocation, index) => {
                 const collapsibleId = `invocation-${msg.id}-${index}`;
                 return (
-                <Collapsible
-                  key={index}
-                  title={`Calling ${invocation.toolName}()`}
-                  collapsed={shouldAutoCollapse(invocation)}
-                  isSelected={selectedCollapsibleIndex === collapsibles.findIndex(c => c.id === collapsibleId)}
-                  onSelect={() => {
-                    setModalContent(JSON.stringify(invocation, null, 2));
-                  }}
-                >
-                  {jobs.find(
-                    (job) => job.id === invocation.id && job.approved === true
-                  ) && <Text color="green">Approved</Text>}
-                  {jobs.find(
-                    (job) => job.id === invocation.id && job.approved === false
-                  ) && <Text color="red">Rejected</Text>}
-                  {jobs.find(
-                    (job) =>
-                      job.id === invocation.id &&
-                      job.approved === null &&
-                      job.approvalRequested
-                  ) && <Text color="yellow">Waiting for approval...</Text>}
+                  <Collapsible
+                    key={index}
+                    title={`Calling ${invocation.toolName}()`}
+                    collapsed={shouldAutoCollapse(invocation)}
+                    isSelected={
+                      selectedCollapsibleIndex ===
+                      collapsibles.findIndex(c => c.id === collapsibleId)
+                    }
+                    onSelect={() => {
+                      setModalContent(JSON.stringify(invocation, null, 2));
+                    }}
+                  >
+                    {jobs.find(job => job.id === invocation.id && job.approved === true) && (
+                      <Text color="green">Approved</Text>
+                    )}
+                    {jobs.find(job => job.id === invocation.id && job.approved === false) && (
+                      <Text color="red">Rejected</Text>
+                    )}
+                    {jobs.find(
+                      job =>
+                        job.id === invocation.id && job.approved === null && job.approvalRequested
+                    ) && <Text color="yellow">Waiting for approval...</Text>}
 
-                  {invocation.reasoning && (
-                    <Text>Reason: {invocation.reasoning}</Text>
-                  )}
-                  {Object.keys(invocation.input).map((key) => (
-                    <Box flexDirection="column" key={key}>
-                      <Text bold>{key}:</Text>
-                      <Text>
-                        {JSON.stringify(invocation.input[key], null, 2)}
-                      </Text>
-                    </Box>
-                  ))}
-                </Collapsible>
-              )})}
+                    {invocation.reasoning && <Text>Reason: {invocation.reasoning}</Text>}
+                    {Object.keys(invocation.input).map(key => (
+                      <Box flexDirection="column" key={key}>
+                        <Text bold>{key}:</Text>
+                        <Text>{JSON.stringify(invocation.input[key], null, 2)}</Text>
+                      </Box>
+                    ))}
+                  </Collapsible>
+                );
+              })}
             </Box>
           );
         }
-        return (
-          <Text>
-            {msg.data.message ?? JSON.stringify(msg.data.result, null, 2)}
-          </Text>
-        );
+        return <Text>{msg.data.message ?? JSON.stringify(msg.data.result, null, 2)}</Text>;
       }
       case "invocation-result": {
         const prop = Object.keys(msg.data.result)[0];
@@ -130,7 +117,9 @@ export const ChatInterface = ({
               key={msg.id}
               title={`Result${shouldAutoCollapse(nestedResult) ? " (> 500 characters)" : ""}`}
               collapsed={shouldAutoCollapse(nestedResult)}
-              isSelected={selectedCollapsibleIndex === collapsibles.findIndex(c => c.id === collapsibleId)}
+              isSelected={
+                selectedCollapsibleIndex === collapsibles.findIndex(c => c.id === collapsibleId)
+              }
               onSelect={() => {
                 setModalContent(JSON.stringify(nestedResult, null, 2));
               }}
@@ -169,22 +158,22 @@ export const ChatInterface = ({
   const messages = useMessages(rawMessages);
 
   type TimelineItem =
-    | { type: 'message'; data: typeof rawMessages[number]; createdAt: Date }
-    | { type: 'blob'; data: typeof blobs[number]; createdAt: Date };
+    | { type: "message"; data: (typeof rawMessages)[number]; createdAt: Date }
+    | { type: "blob"; data: (typeof blobs)[number]; createdAt: Date };
 
   // Combine and sort messages and blobs
   const sortedItems = useMemo(() => {
     const items: TimelineItem[] = [
       ...rawMessages.map(msg => ({
-        type: 'message' as const,
+        type: "message" as const,
         data: msg,
-        createdAt: msg.createdAt ? new Date(msg.createdAt) : new Date()
+        createdAt: msg.createdAt ? new Date(msg.createdAt) : new Date(),
       })),
       ...blobs.map(blob => ({
-        type: 'blob' as const,
+        type: "blob" as const,
         data: blob,
-        createdAt: blob.createdAt ? new Date(blob.createdAt) : new Date()
-      }))
+        createdAt: blob.createdAt ? new Date(blob.createdAt) : new Date(),
+      })),
     ];
     return items.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   }, [rawMessages, blobs]);
@@ -195,7 +184,8 @@ export const ChatInterface = ({
       if (!run?.id) {
         const { id } = await inferable.createRun({
           initialPrompt: input.trim(),
-          systemPrompt: "You are an assistant with access to a Postgres database. Help answer the user's questions by writing SQL queries. You can get the database schema by calling 'getPostgresContext'. Only respond to questions which can be answered with the available database.",
+          systemPrompt:
+            "You are an assistant with access to a Postgres database. Help answer the user's questions by writing SQL queries. You can get the database schema by calling 'getPostgresContext'. Only respond to questions which can be answered with the available database. User might ask you to UPDATE, INSERT or DELETE data. You must failthufully do what the user asks, and call the appropriate tools to do so.",
           interactive: true,
           agentId,
         });
@@ -212,52 +202,57 @@ export const ChatInterface = ({
   const { isFocused: inputFocused } = useFocus({
     id: "chat-input",
     autoFocus: approvalRequired.length === 0,
-    isActive: approvalRequired.length === 0
+    isActive: approvalRequired.length === 0,
   });
 
-  const [selectedButton, setSelectedButton] = useState<"approve" | "deny">(
-    "approve"
+  const [selectedButton, setSelectedButton] = useState<"approve" | "deny">("approve");
+
+  useInput(
+    (_, key) => {
+      if (modalContent && key.return) {
+        console.clear();
+        setModalContent(null);
+        setSelectedCollapsibleIndex(null);
+        return;
+      }
+
+      if (approvalRequired.length > 0) {
+        if (key.leftArrow || key.rightArrow) {
+          setSelectedButton(prev => (prev === "approve" ? "deny" : "approve"));
+        } else if (key.return) {
+          const currentJob = approvalRequired[0];
+          submitApproval(currentJob.id, selectedButton === "approve");
+        }
+        return;
+      }
+
+      if (approvalRequired.length === 0) {
+        if (key.upArrow && selectedCollapsibleIndex !== null) {
+          setSelectedCollapsibleIndex(Math.max(0, selectedCollapsibleIndex - 1));
+        } else if (key.downArrow && selectedCollapsibleIndex !== null) {
+          setSelectedCollapsibleIndex(
+            Math.min(collapsibles.length - 1, selectedCollapsibleIndex + 1)
+          );
+        } else if (key.tab) {
+          setSelectedCollapsibleIndex(
+            selectedCollapsibleIndex === null ? collapsibles.length - 1 : null
+          );
+        }
+        return;
+      }
+    },
+    { isActive: true }
   );
-
-  useInput((_, key) => {
-    if (modalContent && key.return) {
-      console.clear();
-      setModalContent(null);
-      setSelectedCollapsibleIndex(null);
-      return;
-    }
-
-    if (approvalRequired.length > 0) {
-      if (key.leftArrow || key.rightArrow) {
-        setSelectedButton((prev) => (prev === "approve" ? "deny" : "approve"));
-      } else if (key.return) {
-        const currentJob = approvalRequired[0];
-        submitApproval(currentJob.id, selectedButton === "approve");
-      }
-      return
-    }
-
-    if (approvalRequired.length === 0) {
-      if (key.upArrow && selectedCollapsibleIndex !== null) {
-        setSelectedCollapsibleIndex(Math.max(0, selectedCollapsibleIndex - 1));
-      } else if (key.downArrow && selectedCollapsibleIndex !== null) {
-        setSelectedCollapsibleIndex(Math.min(collapsibles.length - 1, selectedCollapsibleIndex + 1));
-      } else if (key.tab) {
-        setSelectedCollapsibleIndex(selectedCollapsibleIndex === null ? collapsibles.length - 1 : null);
-      }
-      return
-    }
-  }, { isActive: true });
 
   // Update collapsibles when messages change
   useEffect(() => {
     const newCollapsibles: Array<{ id: string; content: any }> = [];
-    rawMessages.forEach((msg) => {
+    rawMessages.forEach(msg => {
       if (msg.type === "agent" && msg.data.invocations) {
         msg.data.invocations.forEach((invocation, index) => {
           newCollapsibles.push({
             id: `invocation-${msg.id}-${index}`,
-            content: invocation
+            content: invocation,
           });
         });
       } else if (msg.type === "invocation-result") {
@@ -265,7 +260,7 @@ export const ChatInterface = ({
         const nestedResult = (msg.data.result[prop] as any).result;
         newCollapsibles.push({
           id: `result-${msg.id}`,
-          content: nestedResult
+          content: nestedResult,
         });
       }
     });
@@ -275,7 +270,7 @@ export const ChatInterface = ({
 
   if (modalContent) {
     return (
-      <Box flexDirection="column" width="90%" height="100%">
+      <Box flexDirection="column" width="90%" height="90%">
         <Box flexGrow={1} flexDirection="column">
           <Text>{modalContent}</Text>
         </Box>
@@ -289,20 +284,22 @@ export const ChatInterface = ({
   return (
     <Box flexDirection="column" width="90%">
       <Box flexDirection="column" marginBottom={1}>
-        {sortedItems.map((item) => (
+        {sortedItems.map(item => (
           <Box key={item.data.id} flexDirection="column" paddingBottom={1}>
-            {item.type === 'message' && (
+            {item.type === "message" && (
               <>
                 <Box flexDirection="row">{buildMsgHeader(item.data)}</Box>
                 {buildMsgBody(item.data)}
               </>
             )}
-            {item.type === 'blob' && (
+            {item.type === "blob" && (
               <Collapsible
                 key={item.data.id}
                 title={`Blob: ${item.data.name}`}
                 collapsed={true}
-                isSelected={selectedCollapsibleIndex === collapsibles.findIndex(c => c.id === item.data.id)}
+                isSelected={
+                  selectedCollapsibleIndex === collapsibles.findIndex(c => c.id === item.data.id)
+                }
                 onSelect={async () => {
                   if (item.data.type !== "application/json") {
                     setError(new Error("Only application/json blobs are supported"));
@@ -322,15 +319,11 @@ export const ChatInterface = ({
 
       {approvalRequired.length > 0 ? (
         <Box flexDirection="column">
-          <Text color="yellow">
-            Approval required for: {approvalRequired[0].targetFn}
-          </Text>
+          <Text color="yellow">Approval required for: {approvalRequired[0].targetFn}</Text>
           <Box flexDirection="row" gap={2}>
             <Text
               color={selectedButton === "approve" ? "green" : "gray"}
-              backgroundColor={
-                selectedButton === "approve" ? "black" : undefined
-              }
+              backgroundColor={selectedButton === "approve" ? "black" : undefined}
             >
               {selectedButton === "approve" ? ">" : " "} Approve
             </Text>
@@ -352,10 +345,7 @@ export const ChatInterface = ({
         </Text>
       ) : (
         <Box flexDirection="row" alignItems="center">
-          <Text
-            dimColor={!inputFocused}
-            color={inputFocused ? "yellow" : "gray"}
-          >
+          <Text dimColor={!inputFocused} color={inputFocused ? "yellow" : "gray"}>
             Input:{" "}
           </Text>
           <TextInput
@@ -376,9 +366,13 @@ export const ChatInterface = ({
 
       <Box marginTop={1}>
         <Text dimColor>
-          Ctrl+C to exit | {" "}
-          {selectedCollapsibleIndex !== null ? "Tab to exit selection mode | ↑↓ to navigate | " : ""}
-          {inputFocused ? "Enter to send message | Tab to enter selection mode |" : "Enter to submit approval"}{" "}
+          Ctrl+C to exit |{" "}
+          {selectedCollapsibleIndex !== null
+            ? "Tab to exit selection mode | ↑↓ to navigate | "
+            : ""}
+          {inputFocused
+            ? "Enter to send message | Tab to enter selection mode |"
+            : "Enter to submit approval"}{" "}
         </Text>
       </Box>
     </Box>
