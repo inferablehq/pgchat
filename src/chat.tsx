@@ -1,6 +1,6 @@
 import { Box, Text, useFocus, useInput } from "ink";
 import TextInput from "ink-text-input";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Collapsible } from "./components/Collapsible.js";
 import { useInferable, useMessages, useRun } from "@inferable/react";
 import Spinner from "ink-spinner";
@@ -40,6 +40,8 @@ export const ChatInterface = ({
     setRunId,
     jobs,
     submitApproval,
+    getBlobData,
+    blobs,
     run,
     error: runError,
   } = useRun(inferable);
@@ -166,6 +168,27 @@ export const ChatInterface = ({
   // Get utility functions for working with messages
   const messages = useMessages(rawMessages);
 
+  type TimelineItem =
+    | { type: 'message'; data: typeof rawMessages[number]; createdAt: Date }
+    | { type: 'blob'; data: typeof blobs[number]; createdAt: Date };
+
+  // Combine and sort messages and blobs
+  const sortedItems = useMemo(() => {
+    const items: TimelineItem[] = [
+      ...rawMessages.map(msg => ({
+        type: 'message' as const,
+        data: msg,
+        createdAt: msg.createdAt ? new Date(msg.createdAt) : new Date()
+      })),
+      ...blobs.map(blob => ({
+        type: 'blob' as const,
+        data: blob,
+        createdAt: blob.createdAt ? new Date(blob.createdAt) : new Date()
+      }))
+    ];
+    return items.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  }, [rawMessages, blobs]);
+
   const handleSubmit = async () => {
     const trimmedInput = input.trim();
     if (trimmedInput) {
@@ -246,6 +269,7 @@ export const ChatInterface = ({
         });
       }
     });
+    newCollapsibles.push(...blobs.map(b => ({ id: b.id, content: b })));
     setCollapsibles(newCollapsibles);
   }, [rawMessages]);
 
@@ -265,10 +289,33 @@ export const ChatInterface = ({
   return (
     <Box flexDirection="column" width="90%">
       <Box flexDirection="column" marginBottom={1}>
-        {messages?.all("asc")?.map((msg, _) => (
-          <Box key={msg.id} flexDirection="column" paddingBottom={1}>
-            <Box flexDirection="row">{buildMsgHeader(msg)}</Box>
-            {buildMsgBody(msg)}
+        {sortedItems.map((item) => (
+          <Box key={item.data.id} flexDirection="column" paddingBottom={1}>
+            {item.type === 'message' && (
+              <>
+                <Box flexDirection="row">{buildMsgHeader(item.data)}</Box>
+                {buildMsgBody(item.data)}
+              </>
+            )}
+            {item.type === 'blob' && (
+              <Collapsible
+                key={item.data.id}
+                title={`Blob: ${item.data.name}`}
+                collapsed={true}
+                isSelected={selectedCollapsibleIndex === collapsibles.findIndex(c => c.id === item.data.id)}
+                onSelect={async () => {
+                  if (item.data.type !== "application/json") {
+                    setError(new Error("Only application/json blobs are supported"));
+                    return;
+                  }
+                  const result = await getBlobData(item.data.id);
+                  const decoded = Buffer.from(result as any, "base64").toString("utf-8");
+                  setModalContent(JSON.stringify(JSON.parse(decoded), null, 2));
+                }}
+              >
+                <></>
+              </Collapsible>
+            )}
           </Box>
         ))}
       </Box>
