@@ -1,6 +1,6 @@
 import { Box, Text, useFocus, useInput } from "ink";
 import TextInput from "ink-text-input";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { Collapsible } from "./components/Collapsible.js";
 import { useInferable, useMessages, useRun } from "@inferable/react";
 import Spinner from "ink-spinner";
@@ -11,6 +11,26 @@ type ChatProps = {
   runId?: string;
   agentId?: string;
   endpoint?: string;
+};
+
+type TimelineItem =
+| { type: "message"; data: ReturnType<typeof useRun>["messages"][number]; createdAt: Date }
+| { type: "blob"; data: ReturnType<typeof useRun>["blobs"][number]; createdAt: Date };
+
+
+const shouldAutoCollapse = (content: any): boolean => {
+  return JSON.stringify(content, null, 2).length > 500;
+};
+
+const buildMsgHeader = (msg: ReturnType<typeof useRun>["messages"][number]) => {
+  switch (msg.type) {
+    case "human": {
+      return <Text color="blue">You:</Text>;
+    }
+    case "agent": {
+      return <Text color="green">Agent:</Text>;
+    }
+  }
 };
 
 export const ChatInterface = ({
@@ -25,10 +45,6 @@ export const ChatInterface = ({
   const [selectedCollapsibleIndex, setSelectedCollapsibleIndex] = useState<number | null>(null);
   const [collapsibles, setCollapsibles] = useState<Array<{ id: string; content: any }>>([]);
   const [modalContent, setModalContent] = useState<string | null>(null);
-
-  const shouldAutoCollapse = (content: any): boolean => {
-    return JSON.stringify(content, null, 2).length > 500;
-  };
 
   const inferable = useInferable({
     clusterId,
@@ -53,7 +69,7 @@ export const ChatInterface = ({
     setError(runError);
   }, [runError]);
 
-  const approvalRequired = jobs.filter(job => job.approvalRequested && job.approved === null);
+  const approvalRequired = useMemo(() => jobs.filter(job => job.approvalRequested && job.approved === null), [jobs]);
 
   useEffect(() => {
     if (approvalRequired.length > 0) {
@@ -62,7 +78,8 @@ export const ChatInterface = ({
     }
   }, [approvalRequired]);
 
-  const buildMsgBody = (msg: (typeof rawMessages)[number]) => {
+  const buildMsgBody = useCallback(
+    (msg: (typeof rawMessages)[number]) => {
     switch (msg.type) {
       case "human": {
         return <Text>{msg.data.message}</Text>;
@@ -143,31 +160,13 @@ export const ChatInterface = ({
         return <div />;
       }
     }
-  };
-
-  const buildMsgHeader = (msg: (typeof rawMessages)[number]) => {
-    switch (msg.type) {
-      case "human": {
-        return <Text color="blue">You:</Text>;
-      }
-      case "agent": {
-        return <Text color="green">Agent:</Text>;
-      }
-    }
-  };
+  }, [selectedCollapsibleIndex, collapsibles, jobs, rawMessages]);
 
   useEffect(() => {
     if (runId) {
       setRunId(runId);
     }
   }, [runId]);
-
-  // Get utility functions for working with messages
-  const messages = useMessages(rawMessages);
-
-  type TimelineItem =
-    | { type: "message"; data: (typeof rawMessages)[number]; createdAt: Date }
-    | { type: "blob"; data: (typeof blobs)[number]; createdAt: Date };
 
   // Combine and sort messages and blobs
   const sortedItems = useMemo(() => {
@@ -186,25 +185,26 @@ export const ChatInterface = ({
     return items.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   }, [rawMessages, blobs]);
 
-  const handleSubmit = async () => {
-    const trimmedInput = input.trim();
-    if (trimmedInput) {
-      if (!run?.id) {
-        const { id } = await inferable.createRun({
-          initialPrompt: input.trim(),
-          systemPrompt:
+  const handleSubmit = useCallback(
+    async () => {
+      const trimmedInput = input.trim();
+      if (trimmedInput) {
+        if (!run?.id) {
+          const { id } = await inferable.createRun({
+            initialPrompt: input.trim(),
+            systemPrompt:
             "You are an assistant with access to a Postgres database. Help answer the user's questions by writing SQL queries. You can get the database schema by calling 'getPostgresContext'. Only respond to questions which can be answered with the available database. User might ask you to UPDATE, INSERT or DELETE data. You must failthufully do what the user asks, and call the appropriate tools to do so.",
-          interactive: true,
-          agentId,
-        });
-        setRunId(id);
-      } else {
-        await createMessage(input.trim());
+            interactive: true,
+            agentId,
+          });
+          setRunId(id);
+        } else {
+          await createMessage(input.trim());
+        }
       }
-    }
 
-    setInput("");
-  };
+      setInput("");
+    }, [agentId, createMessage, input, run?.id, setRunId, inferable])
 
   // Only allow chat input focus when no approvals are pending
   const { isFocused: inputFocused } = useFocus({
