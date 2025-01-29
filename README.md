@@ -51,6 +51,10 @@ Inferable is also [self-hostable](https://docs.inferable.ai/pages/self-hosting) 
 
 ## FAQ
 
+### Which LLM is being used?
+
+By default, `pgchat` will use the managed version of [Inferable](https://github.com/inferablehq/inferable) which in turn uses Anthropic's Claude 3.5 on AWS Bedrock to service requests.
+
 ### How does it work without exposing connection strings?
 
 All `pgchat` queries are proxied via a function that runs on your local machine. As a result, the execution environment is completely isolated.
